@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react';
 import './App.css';
+import HistoryTimeline from './HistoryTimeline';
+import PatternCard from './PatternCard';
+
+const HISTORY_KEY = 'lyric-moodboard-history';
 
 const styles = {
   page: {
@@ -165,6 +169,18 @@ function paramsToResult(params) {
   };
 }
 
+function loadHistory() {
+  try {
+    return JSON.parse(localStorage.getItem(HISTORY_KEY)) ?? [];
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory(history) {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+}
+
 export default function App() {
   const [songTitle, setSongTitle] = useState('');
   const [lyrics, setLyrics] = useState('');
@@ -172,6 +188,7 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [history, setHistory] = useState(loadHistory);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -194,9 +211,19 @@ export default function App() {
 
       if (!res.ok) throw new Error('Server error');
       const data = await res.json();
+
       setResult(data);
-      // Clear any shared URL so the address bar stays clean
       window.history.replaceState(null, '', window.location.pathname);
+
+      const entry = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        songTitle,
+        analyzedAt: new Date().toISOString(),
+        ...data,
+      };
+      const updated = [...history, entry];
+      setHistory(updated);
+      saveHistory(updated);
     } catch (err) {
       setError('Something went wrong. Make sure the server is running.');
     } finally {
@@ -211,6 +238,16 @@ export default function App() {
     await navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  function handleSelectHistory(entry) {
+    setResult(entry);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function handleClearHistory() {
+    setHistory([]);
+    localStorage.removeItem(HISTORY_KEY);
   }
 
   return (
@@ -281,6 +318,17 @@ export default function App() {
             {copied ? 'Link copied!' : 'Copy Link'}
           </button>
         </div>
+      )}
+
+      {history.length > 0 && (
+        <>
+          <PatternCard history={history} />
+          <HistoryTimeline
+            history={history}
+            onSelect={handleSelectHistory}
+            onClear={handleClearHistory}
+          />
+        </>
       )}
     </div>
   );
