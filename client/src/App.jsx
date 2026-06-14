@@ -10,63 +10,44 @@ const HISTORY_KEY = 'lyric-moodboard-history';
 const styles = {
   page: {
     minHeight: '100vh',
-    backgroundColor: '#0a0a0a',
+    background: 'radial-gradient(ellipse at 50% -10%, #1e0b38 0%, #0a0a0a 55%)',
     color: '#ffffff',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    padding: '60px 20px',
+    padding: '72px 20px 80px',
     boxSizing: 'border-box',
   },
   title: {
-    fontSize: '2.8rem',
-    fontWeight: '700',
-    margin: '0 0 8px',
-    letterSpacing: '-0.02em',
+    fontSize: '3.2rem',
+    fontWeight: '800',
+    margin: '0 0 10px',
+    letterSpacing: '-0.03em',
+    lineHeight: 1.1,
   },
   subtitle: {
-    fontSize: '1rem',
-    color: '#888',
-    margin: '0 0 40px',
+    fontSize: '1.05rem',
+    color: '#666',
+    margin: '0 0 48px',
+    letterSpacing: '0.01em',
   },
   form: {
     width: '100%',
     maxWidth: '560px',
     display: 'flex',
     flexDirection: 'column',
-    gap: '12px',
-  },
-  buttonWrapper: {
-    padding: '2px',
-    borderRadius: '12px',
-    background: 'linear-gradient(135deg, #6366f1, #a855f7, #ec4899)',
-  },
-  button: {
-    width: '100%',
-    padding: '13px',
-    borderRadius: '10px',
-    border: 'none',
-    backgroundColor: '#0a0a0a',
-    color: '#fff',
-    fontSize: '1rem',
-    fontWeight: '600',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s',
-  },
-  buttonDisabled: {
-    backgroundColor: '#1a1a1a',
-    color: '#444',
-    cursor: 'not-allowed',
+    gap: '10px',
   },
   card: {
     marginTop: '48px',
     width: '100%',
     maxWidth: '560px',
-    backgroundColor: '#141414',
-    border: '1px solid #2a2a2a',
-    borderRadius: '16px',
+    backgroundColor: '#0f0f0f',
+    border: '1px solid #1f1f1f',
+    borderRadius: '20px',
     padding: '32px',
     boxSizing: 'border-box',
+    boxShadow: '0 0 0 1px rgba(255,255,255,0.03), 0 24px 48px rgba(0,0,0,0.4)',
   },
   mood: {
     fontSize: '2.2rem',
@@ -237,20 +218,18 @@ export default function App() {
 
   return (
     <div style={styles.page} className="page-root">
-      <h1 style={styles.title} className="page-title">Lyric Mood Board</h1>
-      <p style={styles.subtitle} className="page-subtitle">Search for a song. See the vibe.</p>
+      <h1 style={styles.title} className="page-title gradient-title">Lyric Mood Board</h1>
+      <p style={styles.subtitle} className="page-subtitle">Search any song. See the vibe.</p>
 
       <div style={styles.form}>
         <SongSearch onSelect={setSelectedSong} />
-        <div style={styles.buttonWrapper}>
-          <button
-            style={{ ...styles.button, ...(isDisabled ? styles.buttonDisabled : {}) }}
-            onClick={handleGenerate}
-            disabled={isDisabled}
-          >
-            {loading ? 'Analyzing...' : 'Generate Mood Board'}
-          </button>
-        </div>
+        <button
+          className="generate-btn"
+          onClick={handleGenerate}
+          disabled={isDisabled}
+        >
+          {loading ? 'Analyzing...' : 'Generate Mood Board'}
+        </button>
       </div>
 
       {error && (

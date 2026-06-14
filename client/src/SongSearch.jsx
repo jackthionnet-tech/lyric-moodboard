@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 
 const inputStyle = {
-  backgroundColor: '#141414',
+  backgroundColor: '#111',
   border: '1px solid #2a2a2a',
   borderRadius: '10px',
   color: '#fff',
@@ -12,16 +12,17 @@ const inputStyle = {
   boxSizing: 'border-box',
 };
 
-async function searchItunes(query) {
+async function searchItunes(term) {
   const res = await fetch(
-    `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=8`
+    `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=song&limit=8`
   );
   const data = await res.json();
   return data.results ?? [];
 }
 
 export default function SongSearch({ onSelect }) {
-  const [query, setQuery] = useState('');
+  const [songQuery, setSongQuery] = useState('');
+  const [artistQuery, setArtistQuery] = useState('');
   const [results, setResults] = useState([]);
   const [selected, setSelected] = useState(null);
   const [open, setOpen] = useState(false);
@@ -40,7 +41,8 @@ export default function SongSearch({ onSelect }) {
   }, []);
 
   useEffect(() => {
-    if (!query.trim()) {
+    const combined = [songQuery, artistQuery].filter(Boolean).join(' ').trim();
+    if (!combined) {
       setResults([]);
       setOpen(false);
       return;
@@ -49,7 +51,7 @@ export default function SongSearch({ onSelect }) {
     setSearching(true);
     debounceRef.current = setTimeout(async () => {
       try {
-        const songs = await searchItunes(query);
+        const songs = await searchItunes(combined);
         setResults(songs);
         setOpen(songs.length > 0);
       } catch {
@@ -59,12 +61,13 @@ export default function SongSearch({ onSelect }) {
       }
     }, 300);
     return () => clearTimeout(debounceRef.current);
-  }, [query]);
+  }, [songQuery, artistQuery]);
 
   function handleSelect(song) {
     setSelected(song);
     setOpen(false);
-    setQuery('');
+    setSongQuery('');
+    setArtistQuery('');
     onSelect(song);
   }
 
@@ -80,11 +83,10 @@ export default function SongSearch({ onSelect }) {
           display: 'flex',
           alignItems: 'center',
           gap: '12px',
-          backgroundColor: '#141414',
+          backgroundColor: '#111',
           border: '1px solid #2a2a2a',
           borderRadius: '10px',
           padding: '10px 14px',
-          boxSizing: 'border-box',
         }}>
           {selected.artworkUrl100 && (
             <img
@@ -103,26 +105,38 @@ export default function SongSearch({ onSelect }) {
           </div>
           <button
             onClick={handleClear}
-            style={{ background: 'none', border: 'none', color: '#444', cursor: 'pointer', fontSize: '0.8rem', flexShrink: 0, padding: '4px 0' }}
+            style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: '0.8rem', flexShrink: 0 }}
           >
             Change
           </button>
         </div>
       ) : (
-        <div style={{ position: 'relative' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ position: 'relative' }}>
+            <input
+              className="search-input"
+              style={inputStyle}
+              type="text"
+              placeholder="Song title..."
+              value={songQuery}
+              onChange={e => setSongQuery(e.target.value)}
+              onFocus={() => results.length > 0 && setOpen(true)}
+            />
+            {searching && (
+              <div style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', color: '#444', fontSize: '0.75rem' }}>
+                searching...
+              </div>
+            )}
+          </div>
           <input
+            className="search-input"
             style={inputStyle}
             type="text"
-            placeholder="Search for a song..."
-            value={query}
-            onChange={e => setQuery(e.target.value)}
+            placeholder="Artist (optional — helps narrow results)"
+            value={artistQuery}
+            onChange={e => setArtistQuery(e.target.value)}
             onFocus={() => results.length > 0 && setOpen(true)}
           />
-          {searching && (
-            <div style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', color: '#444', fontSize: '0.75rem' }}>
-              searching...
-            </div>
-          )}
         </div>
       )}
 
@@ -132,12 +146,12 @@ export default function SongSearch({ onSelect }) {
           top: 'calc(100% + 6px)',
           left: 0,
           right: 0,
-          backgroundColor: '#141414',
+          backgroundColor: '#111',
           border: '1px solid #2a2a2a',
           borderRadius: '12px',
           overflow: 'hidden',
           zIndex: 20,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+          boxShadow: '0 12px 40px rgba(0,0,0,0.7)',
         }}>
           {results.map((song, i) => (
             <button
@@ -160,11 +174,7 @@ export default function SongSearch({ onSelect }) {
               onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
             >
               {song.artworkUrl100 ? (
-                <img
-                  src={song.artworkUrl100}
-                  alt=""
-                  style={{ width: '40px', height: '40px', borderRadius: '4px', flexShrink: 0 }}
-                />
+                <img src={song.artworkUrl100} alt="" style={{ width: '40px', height: '40px', borderRadius: '4px', flexShrink: 0 }} />
               ) : (
                 <div style={{ width: '40px', height: '40px', borderRadius: '4px', backgroundColor: '#222', flexShrink: 0 }} />
               )}
