@@ -47,6 +47,40 @@ ${lyrics}`,
   }
 });
 
+app.post('/api/recommendations', async (req, res) => {
+  try {
+    const { songTitle, mood, keywords, summary } = req.body;
+
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+    const message = await client.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1024,
+      messages: [
+        {
+          role: 'user',
+          content: `Someone just analyzed the song "${songTitle}". Its emotional profile:
+- Mood: ${mood}
+- Vibe: ${summary}
+- Keywords: ${keywords.join(', ')}
+
+Recommend 5 real songs with a similar emotional fingerprint. Match the feeling, not the genre. Return ONLY a valid JSON object — no explanation, no markdown, no code fences — with a single field:
+- recommendations: an array of exactly 5 objects, each with:
+  - title: the song title
+  - artist: the artist name
+  - reason: one sentence explaining the emotional similarity (focus on feeling, not genre)`,
+        },
+      ],
+    });
+
+    const data = JSON.parse(message.content[0].text);
+    res.json(data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to get recommendations' });
+  }
+});
+
 app.post('/api/patterns', async (req, res) => {
   try {
     const { history } = req.body;

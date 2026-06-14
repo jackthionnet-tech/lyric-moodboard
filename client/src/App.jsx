@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import './App.css';
 import HistoryTimeline from './HistoryTimeline';
 import PatternCard from './PatternCard';
+import Recommendations from './Recommendations';
 
 const HISTORY_KEY = 'lyric-moodboard-history';
 
@@ -319,6 +320,8 @@ export default function App() {
           </button>
         </div>
       )}
+
+      {result && <Recommendations key={result.mood + result.summary} result={result} />}
 
       {history.length > 0 && (
         <>
