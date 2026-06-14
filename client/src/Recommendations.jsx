@@ -1,9 +1,31 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+
+async function fetchArtwork(title, artist) {
+  try {
+    const query = encodeURIComponent(`${title} ${artist}`);
+    const res = await fetch(`https://itunes.apple.com/search?term=${query}&entity=song&limit=1`);
+    const data = await res.json();
+    const url = data.results?.[0]?.artworkUrl100;
+    return url ? url.replace('100x100bb', '300x300bb') : null;
+  } catch {
+    return null;
+  }
+}
 
 export default function Recommendations({ result }) {
   const [recs, setRecs] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [artworks, setArtworks] = useState({});
+
+  useEffect(() => {
+    if (!recs) return;
+    Promise.all(recs.map(rec => fetchArtwork(rec.title, rec.artist))).then(urls => {
+      const map = {};
+      urls.forEach((url, i) => { map[i] = url; });
+      setArtworks(map);
+    });
+  }, [recs]);
 
   async function fetchRecs() {
     setLoading(true);
@@ -70,7 +92,7 @@ export default function Recommendations({ result }) {
               Similar songs
             </h2>
             <button
-              onClick={() => setRecs(null)}
+              onClick={() => { setRecs(null); setArtworks({}); }}
               style={{ background: 'none', border: 'none', color: '#444', fontSize: '0.8rem', cursor: 'pointer', padding: '4px 0' }}
             >
               Dismiss
@@ -79,20 +101,42 @@ export default function Recommendations({ result }) {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {recs.map((rec, i) => (
-              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '12px' }}>
-                  <span style={{ color: '#fff', fontWeight: '500', fontSize: '0.95rem' }}>
-                    {rec.title}
-                  </span>
-                  <span style={{ color: '#555', fontSize: '0.8rem', flexShrink: 0 }}>
-                    {rec.artist}
-                  </span>
+              <div key={i}>
+                <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
+                  <div style={{
+                    width: '52px',
+                    height: '52px',
+                    borderRadius: '6px',
+                    flexShrink: 0,
+                    backgroundColor: '#1e1e1e',
+                    overflow: 'hidden',
+                  }}>
+                    {artworks[i] && (
+                      <img
+                        src={artworks[i]}
+                        alt={`${rec.title} artwork`}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                      />
+                    )}
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '8px' }}>
+                      <span style={{ color: '#fff', fontWeight: '500', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {rec.title}
+                      </span>
+                      <span style={{ color: '#555', fontSize: '0.8rem', flexShrink: 0 }}>
+                        {rec.artist}
+                      </span>
+                    </div>
+                    <p style={{ margin: '4px 0 0', color: '#555', fontSize: '0.82rem', lineHeight: '1.5' }}>
+                      {rec.reason}
+                    </p>
+                  </div>
                 </div>
-                <p style={{ margin: 0, color: '#555', fontSize: '0.82rem', lineHeight: '1.5' }}>
-                  {rec.reason}
-                </p>
+
                 {i < recs.length - 1 && (
-                  <div style={{ borderBottom: '1px solid #1a1a1a', marginTop: '12px' }} />
+                  <div style={{ borderBottom: '1px solid #1a1a1a', marginTop: '16px' }} />
                 )}
               </div>
             ))}
