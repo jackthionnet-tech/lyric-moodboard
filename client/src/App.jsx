@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import './App.css';
+import SongSearch from './SongSearch';
 import HistoryTimeline from './HistoryTimeline';
 import PatternCard from './PatternCard';
 import Recommendations from './Recommendations';
@@ -35,31 +36,6 @@ const styles = {
     flexDirection: 'column',
     gap: '12px',
   },
-  input: {
-    backgroundColor: '#141414',
-    border: '1px solid #2a2a2a',
-    borderRadius: '10px',
-    color: '#fff',
-    fontSize: '0.95rem',
-    padding: '12px 16px',
-    outline: 'none',
-    width: '100%',
-    boxSizing: 'border-box',
-  },
-  textarea: {
-    backgroundColor: '#141414',
-    border: '1px solid #2a2a2a',
-    borderRadius: '10px',
-    color: '#fff',
-    fontSize: '0.95rem',
-    padding: '12px 16px',
-    outline: 'none',
-    resize: 'vertical',
-    width: '100%',
-    boxSizing: 'border-box',
-    fontFamily: 'inherit',
-    lineHeight: '1.6',
-  },
   buttonWrapper: {
     padding: '2px',
     borderRadius: '12px',
@@ -77,9 +53,9 @@ const styles = {
     cursor: 'pointer',
     transition: 'background-color 0.2s',
   },
-  buttonLoading: {
+  buttonDisabled: {
     backgroundColor: '#1a1a1a',
-    color: '#888',
+    color: '#444',
     cursor: 'not-allowed',
   },
   card: {
@@ -162,12 +138,7 @@ function paramsToResult(params) {
   const keywords = params.get('keywords');
   const colors = params.get('colors');
   if (!mood || !summary || !keywords || !colors) return null;
-  return {
-    mood,
-    summary,
-    keywords: keywords.split(','),
-    colors: colors.split(','),
-  };
+  return { mood, summary, keywords: keywords.split(','), colors: colors.split(',') };
 }
 
 function loadHistory() {
@@ -183,8 +154,7 @@ function saveHistory(history) {
 }
 
 export default function App() {
-  const [songTitle, setSongTitle] = useState('');
-  const [lyrics, setLyrics] = useState('');
+  const [selectedSong, setSelectedSong] = useState(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
@@ -198,7 +168,7 @@ export default function App() {
   }, []);
 
   async function handleGenerate() {
-    if (!lyrics.trim() || !songTitle.trim()) return;
+    if (!selectedSong) return;
     setLoading(true);
     setError(null);
     setResult(null);
@@ -207,25 +177,37 @@ export default function App() {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ songTitle, lyrics }),
+        body: JSON.stringify({
+          songTitle: selectedSong.trackName,
+          artist: selectedSong.artistName,
+        }),
       });
 
-      if (!res.ok) throw new Error('Server error');
       const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? 'Something went wrong. Make sure the server is running.');
+        return;
+      }
 
-      setResult(data);
+      const enriched = {
+        ...data,
+        songTitle: selectedSong.trackName,
+        artist: selectedSong.artistName,
+        artworkUrl: selectedSong.artworkUrl100?.replace('100x100bb', '300x300bb') ?? null,
+      };
+
+      setResult(enriched);
       window.history.replaceState(null, '', window.location.pathname);
 
       const entry = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        songTitle,
         analyzedAt: new Date().toISOString(),
-        ...data,
+        ...enriched,
       };
       const updated = [...history, entry];
       setHistory(updated);
       saveHistory(updated);
-    } catch (err) {
+    } catch {
       setError('Something went wrong. Make sure the server is running.');
     } finally {
       setLoading(false);
@@ -251,31 +233,20 @@ export default function App() {
     localStorage.removeItem(HISTORY_KEY);
   }
 
+  const isDisabled = !selectedSong || loading;
+
   return (
     <div style={styles.page} className="page-root">
       <h1 style={styles.title} className="page-title">Lyric Mood Board</h1>
-      <p style={styles.subtitle} className="page-subtitle">Paste any lyrics. See the vibe.</p>
+      <p style={styles.subtitle} className="page-subtitle">Search for a song. See the vibe.</p>
 
       <div style={styles.form}>
-        <input
-          style={styles.input}
-          type="text"
-          placeholder="Song title"
-          value={songTitle}
-          onChange={(e) => setSongTitle(e.target.value)}
-        />
-        <textarea
-          style={styles.textarea}
-          rows={8}
-          placeholder="Paste lyrics here..."
-          value={lyrics}
-          onChange={(e) => setLyrics(e.target.value)}
-        />
+        <SongSearch onSelect={setSelectedSong} />
         <div style={styles.buttonWrapper}>
           <button
-            style={{ ...styles.button, ...(loading ? styles.buttonLoading : {}) }}
+            style={{ ...styles.button, ...(isDisabled ? styles.buttonDisabled : {}) }}
             onClick={handleGenerate}
-            disabled={loading}
+            disabled={isDisabled}
           >
             {loading ? 'Analyzing...' : 'Generate Mood Board'}
           </button>
@@ -290,6 +261,14 @@ export default function App() {
 
       {result && (
         <div style={styles.card} className="mood-card">
+          {result.artworkUrl && (
+            <img
+              src={result.artworkUrl}
+              alt=""
+              style={{ width: '72px', height: '72px', borderRadius: '8px', marginBottom: '20px', display: 'block' }}
+            />
+          )}
+
           <div style={styles.mood} className="mood-word">{result.mood}</div>
 
           <div style={styles.colorsRow} className="colors-row">
@@ -304,9 +283,7 @@ export default function App() {
 
           <div style={styles.keywordsRow} className="keywords-row">
             {result.keywords.map((word) => (
-              <span key={word} style={styles.pill}>
-                {word}
-              </span>
+              <span key={word} style={styles.pill}>{word}</span>
             ))}
           </div>
 

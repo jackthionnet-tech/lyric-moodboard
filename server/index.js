@@ -17,7 +17,16 @@ app.get('/', (req, res) => {
 
 app.post('/api/analyze', async (req, res) => {
   try {
-    const { lyrics, songTitle } = req.body;
+    const { songTitle, artist } = req.body;
+
+    const lyricsRes = await fetch(
+      `https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(songTitle)}`
+    );
+    const lyricsData = await lyricsRes.json();
+
+    if (!lyricsData.lyrics) {
+      return res.status(404).json({ error: `Couldn't find lyrics for "${songTitle}". Try a different song.` });
+    }
 
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -27,14 +36,14 @@ app.post('/api/analyze', async (req, res) => {
       messages: [
         {
           role: 'user',
-          content: `Analyze the mood of the following song lyrics from "${songTitle}" and respond with ONLY a valid JSON object — no explanation, no markdown, no code fences. The JSON must have exactly these fields:
+          content: `Analyze the mood of the following song lyrics from "${songTitle}" by ${artist} and respond with ONLY a valid JSON object — no explanation, no markdown, no code fences. The JSON must have exactly these fields:
 - mood: a one-word mood description (e.g. "melancholic", "euphoric", "rebellious")
 - summary: a one-sentence vibe description of the song
 - keywords: an array of exactly 5 evocative words that capture the feeling
 - colors: an array of exactly 3 hex color codes that match the mood (e.g. warm oranges for happy, cool blues for sad)
 
 Lyrics:
-${lyrics}`,
+${lyricsData.lyrics}`,
         },
       ],
     });
