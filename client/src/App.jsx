@@ -136,6 +136,9 @@ function saveHistory(history) {
 
 export default function App() {
   const [selectedSong, setSelectedSong] = useState(null);
+  const [manualMode, setManualMode] = useState(false);
+  const [manualTitle, setManualTitle] = useState('');
+  const [manualLyrics, setManualLyrics] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
@@ -149,19 +152,22 @@ export default function App() {
   }, []);
 
   async function handleGenerate() {
-    if (!selectedSong) return;
+    const isManual = manualMode;
+    if (isManual ? !manualTitle.trim() || !manualLyrics.trim() : !selectedSong) return;
+
     setLoading(true);
     setError(null);
     setResult(null);
 
     try {
+      const body = isManual
+        ? { songTitle: manualTitle.trim(), lyrics: manualLyrics.trim() }
+        : { songTitle: selectedSong.trackName, artist: selectedSong.artistName };
+
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          songTitle: selectedSong.trackName,
-          artist: selectedSong.artistName,
-        }),
+        body: JSON.stringify(body),
       });
 
       const data = await res.json();
@@ -172,9 +178,9 @@ export default function App() {
 
       const enriched = {
         ...data,
-        songTitle: selectedSong.trackName,
-        artist: selectedSong.artistName,
-        artworkUrl: selectedSong.artworkUrl100?.replace('100x100bb', '300x300bb') ?? null,
+        songTitle: isManual ? manualTitle.trim() : selectedSong.trackName,
+        artist: isManual ? null : selectedSong.artistName,
+        artworkUrl: isManual ? null : (selectedSong.artworkUrl100?.replace('100x100bb', '300x300bb') ?? null),
       };
 
       setResult(enriched);
@@ -214,7 +220,22 @@ export default function App() {
     localStorage.removeItem(HISTORY_KEY);
   }
 
-  const isDisabled = !selectedSong || loading;
+  const isDisabled = loading || (manualMode
+    ? !manualTitle.trim() || !manualLyrics.trim()
+    : !selectedSong);
+
+  const inputStyle = {
+    backgroundColor: '#111',
+    border: '1px solid #2a2a2a',
+    borderRadius: '10px',
+    color: '#fff',
+    fontSize: '0.95rem',
+    padding: '12px 16px',
+    outline: 'none',
+    width: '100%',
+    boxSizing: 'border-box',
+    fontFamily: 'inherit',
+  };
 
   return (
     <div style={styles.page} className="page-root">
@@ -222,13 +243,42 @@ export default function App() {
       <p style={styles.subtitle} className="page-subtitle">Search any song. See the vibe.</p>
 
       <div style={styles.form}>
-        <SongSearch onSelect={setSelectedSong} />
+        {manualMode ? (
+          <>
+            <input
+              className="search-input"
+              style={inputStyle}
+              type="text"
+              placeholder="Song title"
+              value={manualTitle}
+              onChange={e => setManualTitle(e.target.value)}
+            />
+            <textarea
+              className="search-input"
+              style={{ ...inputStyle, resize: 'vertical', lineHeight: '1.6' }}
+              rows={8}
+              placeholder="Paste lyrics here..."
+              value={manualLyrics}
+              onChange={e => setManualLyrics(e.target.value)}
+            />
+          </>
+        ) : (
+          <SongSearch onSelect={setSelectedSong} />
+        )}
+
         <button
           className="generate-btn"
           onClick={handleGenerate}
           disabled={isDisabled}
         >
           {loading ? 'Analyzing...' : 'Generate Mood Board'}
+        </button>
+
+        <button
+          onClick={() => { setManualMode(m => !m); setSelectedSong(null); setError(null); }}
+          style={{ background: 'none', border: 'none', color: '#444', fontSize: '0.82rem', cursor: 'pointer', padding: '4px 0', alignSelf: 'center' }}
+        >
+          {manualMode ? '← Back to search' : "Can't find your song? Add lyrics manually"}
         </button>
       </div>
 
