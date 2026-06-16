@@ -12,12 +12,42 @@ const inputStyle = {
   boxSizing: 'border-box',
 };
 
-async function searchItunes(term) {
-  const res = await fetch(
-    `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=song&limit=8`
-  );
-  const data = await res.json();
-  return data.results ?? [];
+async function searchItunes(songQuery, artistQuery) {
+  const combined = [songQuery, artistQuery].filter(Boolean).join(' ').trim();
+
+  const requests = [
+    fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(combined)}&entity=song&limit=20`)
+      .then(r => r.json()).then(d => d.results ?? []),
+  ];
+
+  // When an artist is specified, also search directly by artist name so niche
+  // artists aren't buried by popular songs with the same title.
+  if (artistQuery.trim()) {
+    requests.push(
+      fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(artistQuery)}&attribute=artistTerm&entity=song&limit=25`)
+        .then(r => r.json())
+        .then(d => {
+          const songs = d.results ?? [];
+          if (!songQuery.trim()) return songs;
+          const lower = songQuery.toLowerCase();
+          return songs.filter(s => s.trackName?.toLowerCase().includes(lower));
+        })
+    );
+  }
+
+  const [combinedResults, artistResults = []] = await Promise.all(requests);
+
+  // Merge, putting artist-specific matches first, then deduplicate by trackId.
+  const seen = new Set();
+  const merged = [];
+  for (const song of [...artistResults, ...combinedResults]) {
+    const key = song.trackId ?? `${song.trackName}-${song.artistName}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      merged.push(song);
+    }
+  }
+  return merged.slice(0, 20);
 }
 
 export default function SongSearch({ onSelect }) {
@@ -51,7 +81,7 @@ export default function SongSearch({ onSelect }) {
     setSearching(true);
     debounceRef.current = setTimeout(async () => {
       try {
-        const songs = await searchItunes(combined);
+        const songs = await searchItunes(songQuery, artistQuery);
         setResults(songs);
         setOpen(songs.length > 0);
       } catch {
