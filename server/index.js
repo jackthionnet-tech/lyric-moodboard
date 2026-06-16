@@ -60,6 +60,30 @@ ${finalLyrics}`,
   }
 });
 
+app.get('/api/search', async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q?.trim()) return res.json([]);
+
+    const response = await fetch(
+      `https://api.deezer.com/search?q=${encodeURIComponent(q)}&limit=20`
+    );
+    const data = await response.json();
+
+    const results = (data.data ?? []).map(track => ({
+      id: track.id,
+      title: track.title,
+      artist: track.artist.name,
+      artwork: track.album.cover_medium ?? track.album.cover_small ?? null,
+    }));
+
+    res.json(results);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json([]);
+  }
+});
+
 app.post('/api/recommendations', async (req, res) => {
   try {
     const { songTitle, mood, keywords, summary } = req.body;
